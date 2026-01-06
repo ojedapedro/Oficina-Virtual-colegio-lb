@@ -1,0 +1,5 @@
+{
+  "name": "Oficina Virtual Colegio LB",
+  "description": "Sistema de registro de pagos y gestión administrativa escolar con integración a Google Sheets.",
+  "requestFramePermissions": []
+}
