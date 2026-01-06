@@ -20,6 +20,14 @@ const callScript = async (action: string, payload: any = {}) => {
     if (action === 'register') {
        return { success: true, user: { cedula: payload.cedula, name: payload.name }};
     }
+    if (action === 'getExchangeRate') {
+        return { success: true, rate: 303.00, date: new Date().toISOString() };
+    }
+    // Simulación de búsqueda de estudiante
+    if (action === 'getStudentByCedula') {
+        if (payload.cedula === '123456') return { success: true, matricula: '2024-001', studentName: 'Estudiante Demo' };
+        return { success: false };
+    }
 
     return null;
   }
@@ -86,4 +94,25 @@ export const registerUser = async (user: { name: string, cedula: string, passwor
 
 export const loginUser = async (credentials: { cedula: string, password: string }) => {
   return await callScript('login', credentials);
+};
+
+export const getExchangeRate = async (): Promise<{ rate: number, date: string }> => {
+  try {
+    const result = await callScript('getExchangeRate');
+    if (!result || !result.success) return { rate: 0, date: '' };
+    return { rate: result.rate, date: result.date };
+  } catch (e) {
+    console.error("Error fetching exchange rate:", e);
+    return { rate: 0, date: '' };
+  }
+};
+
+export const fetchStudentByCedula = async (cedula: string): Promise<{ success: boolean, matricula?: string, studentName?: string }> => {
+  try {
+    const result = await callScript('getStudentByCedula', { cedula });
+    return result || { success: false };
+  } catch (e) {
+    console.error("Error fetching student:", e);
+    return { success: false };
+  }
 };

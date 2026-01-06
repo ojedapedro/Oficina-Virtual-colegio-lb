@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Send, Loader2, CheckCircle2, RefreshCw, ArrowRightLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Send, Loader2, CheckCircle2, RefreshCw, ArrowRightLeft, UserCheck } from 'lucide-react';
 import { EDUCATION_LEVELS, PAYMENT_METHODS } from '../constants';
 import { PaymentRecord, EducationLevel, PaymentMethod, User } from '../types';
-import { generateTransactionId, submitPaymentToSheet } from '../services/sheetService';
+import { generateTransactionId, submitPaymentToSheet, fetchStudentByCedula } from '../services/sheetService';
 
 interface PaymentFormProps {
   user?: User;
@@ -28,17 +28,40 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
     description: ''
   });
 
-  // 'BS' por defecto según requerimiento
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'BS'>('BS'); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successId, setSuccessId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSearchingStudent, setIsSearchingStudent] = useState(false);
 
   const MONTHS = [
     'Inscripción', 'Septiembre', 'Octubre', 'Noviembre', 
     'Diciembre', 'Enero', 'Febrero', 'Marzo', 
     'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto'
   ];
+
+  // Auto-fill student data if user is logged in
+  useEffect(() => {
+    if (user?.cedula) {
+      handleSearchStudent(user.cedula);
+    }
+  }, [user]);
+
+  const handleSearchStudent = async (cedula: string) => {
+    if (!cedula || cedula.length < 5) return;
+    
+    setIsSearchingStudent(true);
+    const result = await fetchStudentByCedula(cedula);
+    
+    if (result.success && result.matricula) {
+      setFormData(prev => ({
+        ...prev,
+        studentMatricula: result.matricula,
+        studentName: result.studentName || prev.studentName // Actualiza nombre si viene, sino mantiene
+      }));
+    }
+    setIsSearchingStudent(false);
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -48,25 +71,25 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
     }));
   };
 
-  // Lógica de conversión actualizada
+  const handleCedulaBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val && !user) { // Solo buscar al salir del campo si no es usuario logueado (que ya se buscó)
+      handleSearchStudent(val);
+    }
+  };
+
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value); 
     
     if (inputCurrency === 'BS') {
-      // Ingreso en Bs -> Calculo Dólares
-      // Bs / Tasa = $
       const calculatedUSD = exchangeRate > 0 ? Number((val / exchangeRate).toFixed(2)) : 0;
-      
       setFormData(prev => ({
         ...prev,
         amountBs: val,
         amountUSD: calculatedUSD
       }));
     } else {
-      // Ingreso en $ -> Calculo Bs
-      // $ * Tasa = Bs
       const calculatedBs = exchangeRate > 0 ? Number((val * exchangeRate).toFixed(2)) : 0;
-
       setFormData(prev => ({
         ...prev,
         amountUSD: val,
@@ -77,7 +100,6 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
 
   const toggleCurrency = () => {
     setInputCurrency(prev => prev === 'USD' ? 'BS' : 'USD');
-    // Reseteamos montos para evitar confusión al cambiar el campo editable
     setFormData(prev => ({ ...prev, amountUSD: 0, amountBs: 0 }));
   };
 
@@ -209,14 +231,24 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
            <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Cédula del Representante</label>
-            <input 
-              type="text" 
-              name="representativeCedula"
-              value={user?.cedula || formData.representativeCedula}
-              onChange={handleChange}
-              disabled={!!user} 
-              className={`w-full px-4 py-2 border border-slate-300 rounded-lg ${!!user ? 'bg-slate-100 text-slate-600' : ''}`}
-            />
+            <div className="relative">
+              <input 
+                type="text" 
+                name="representativeCedula"
+                value={user?.cedula || formData.representativeCedula}
+                onChange={handleChange}
+                onBlur={handleCedulaBlur}
+                disabled={!!user} 
+                className={`w-full px-4 py-2 border border-slate-300 rounded-lg ${!!user ? 'bg-slate-100 text-slate-600' : ''}`}
+                placeholder="Ingrese Cédula para buscar alumno"
+              />
+              {isSearchingStudent && (
+                 <div className="absolute right-3 top-2.5">
+                    <Loader2 className="animate-spin text-blue-500" size={18} />
+                 </div>
+              )}
+            </div>
+            {!user && <p className="text-xs text-slate-400 mt-1">Presione tabulador o haga click fuera para buscar.</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Representante</label>
@@ -232,9 +264,12 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
         </div>
 
         {/* Student ID Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Estudiante *</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Nombre del Estudiante *
+              {formData.studentMatricula && <UserCheck size={14} className="inline ml-2 text-green-600"/>}
+            </label>
             <input 
               type="text" 
               name="studentName"
@@ -251,10 +286,10 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
               type="text" 
               name="studentMatricula"
               required
-              placeholder="Nro Matrícula"
+              placeholder="Nro Matrícula (Autocargado)"
               value={formData.studentMatricula}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-800"
             />
           </div>
         </div>
