@@ -1,22 +1,25 @@
 import React, { useState } from 'react';
-import { Send, Loader2, CheckCircle2 } from 'lucide-react';
+import { Send, Loader2, CheckCircle2, Calculator } from 'lucide-react';
 import { EDUCATION_LEVELS, PAYMENT_METHODS } from '../constants';
 import { PaymentRecord, EducationLevel, PaymentMethod, User } from '../types';
 import { generateTransactionId, submitPaymentToSheet } from '../services/sheetService';
 
 interface PaymentFormProps {
   user?: User;
+  exchangeRate?: number;
 }
 
-export const PaymentForm: React.FC<PaymentFormProps> = ({ user }) => {
+export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0 }) => {
   const [formData, setFormData] = useState<Partial<PaymentRecord>>({
     registrationDate: new Date().toISOString().split('T')[0],
     paymentDate: new Date().toISOString().split('T')[0],
     level: EducationLevel.MATERNAL,
     paymentMethod: PaymentMethod.TRANSFERENCIA,
-    amount: 0,
+    amountUSD: 0,
+    amountBs: 0,
+    paymentForm: 'Total', // Default
     referenceNumber: '',
-    representativeId: user?.cedula || '',
+    representativeCedula: user?.cedula || '',
     representativeName: user?.name || '',
     studentMatricula: '',
     studentName: '',
@@ -68,12 +71,16 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user }) => {
 
     const newId = generateTransactionId();
     
+    // Calculate Bs Amount automatically based on current rate if not manually set (though we don't expose manual set here for simplicity)
+    const calculatedBs = Number(formData.amountUSD) * (exchangeRate || 0);
+
     const record: PaymentRecord = {
       ...formData as PaymentRecord,
       id: newId,
-      amount: Number(formData.amount), // Ensure number
+      amountUSD: Number(formData.amountUSD), 
+      amountBs: calculatedBs,
       // Ensure user info is attached if not editable
-      representativeId: user?.cedula || formData.representativeId || '',
+      representativeCedula: user?.cedula || formData.representativeCedula || '',
       representativeName: user?.name || formData.representativeName || ''
     };
 
@@ -84,7 +91,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user }) => {
       // Reset form but keep some defaults
       setFormData(prev => ({
         ...prev,
-        amount: 0,
+        amountUSD: 0,
+        amountBs: 0,
         referenceNumber: '',
         paidMonths: [],
         description: ''
@@ -121,9 +129,17 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user }) => {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="bg-blue-900 px-6 py-4 border-b border-blue-800">
-        <h2 className="text-white text-lg font-semibold">Registro de Pago</h2>
-        <p className="text-blue-200 text-sm">Ingrese los datos del pago realizado</p>
+      <div className="bg-blue-900 px-6 py-4 border-b border-blue-800 flex justify-between items-center">
+        <div>
+          <h2 className="text-white text-lg font-semibold">Registro de Pago</h2>
+          <p className="text-blue-200 text-sm">Ingrese los datos del pago realizado</p>
+        </div>
+        {exchangeRate > 0 && (
+          <div className="bg-blue-800/50 px-3 py-1 rounded text-right">
+             <p className="text-blue-200 text-xs">Tasa del día</p>
+             <p className="text-white font-mono font-bold">Bs. {exchangeRate}</p>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
@@ -160,8 +176,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user }) => {
             <label className="block text-sm font-medium text-slate-700 mb-1">Cédula del Representante</label>
             <input 
               type="text" 
-              name="representativeId"
-              value={user?.cedula || formData.representativeId}
+              name="representativeCedula"
+              value={user?.cedula || formData.representativeCedula}
               onChange={handleChange}
               disabled={!!user} // Disable if user is logged in
               className={`w-full px-4 py-2 border border-slate-300 rounded-lg ${!!user ? 'bg-slate-100 text-slate-600' : ''}`}
@@ -278,24 +294,45 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Monto Total *</label>
+             <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de Pago *</label>
+             <select 
+              name="paymentForm"
+              required
+              value={formData.paymentForm}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="Total">Pago Total / Completo</option>
+              <option value="Abono">Abono</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Monto ($) *</label>
             <div className="relative">
               <input 
                 type="number" 
-                name="amount"
+                name="amountUSD"
                 required
                 step="0.01"
                 min="0.01"
                 placeholder="0.00"
-                value={formData.amount || ''}
+                value={formData.amountUSD || ''}
                 onChange={handleChange}
                 className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
               <span className="absolute left-3 top-2 text-slate-400 font-bold">$</span>
             </div>
+            {/* Show estimate if rate available */}
+            {exchangeRate > 0 && formData.amountUSD! > 0 && (
+               <p className="text-xs text-emerald-600 mt-1 font-medium flex items-center gap-1">
+                 <Calculator size={12} />
+                 Bs. {(Number(formData.amountUSD) * exchangeRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+               </p>
+            )}
           </div>
 
-          <div className="md:col-span-2">
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Referencia / Comprobante
               {formData.paymentMethod?.includes('Efectivo') ? ' (Opcional)' : ' *'}
