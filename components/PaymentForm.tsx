@@ -14,10 +14,10 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
     registrationDate: new Date().toISOString().split('T')[0],
     paymentDate: new Date().toISOString().split('T')[0],
     level: EducationLevel.MATERNAL,
-    paymentMethod: PaymentMethod.TRANSFERENCIA,
+    paymentMethod: PaymentMethod.PAGO_MOVIL, // Default to generic local method
     amountUSD: 0,
     amountBs: 0,
-    paymentForm: 'Total', // Default
+    paymentForm: 'Total',
     referenceNumber: '',
     representativeCedula: user?.cedula || '',
     representativeName: user?.name || '',
@@ -28,7 +28,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
     description: ''
   });
 
-  const [inputCurrency, setInputCurrency] = useState<'USD' | 'BS'>('BS'); // Default to Bs as requested
+  // Default to 'BS' as requested for the conversion logic
+  const [inputCurrency, setInputCurrency] = useState<'USD' | 'BS'>('BS'); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successId, setSuccessId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -50,26 +51,34 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value);
     
-    if (inputCurrency === 'USD') {
-      setFormData(prev => ({
-        ...prev,
-        amountUSD: val,
-        amountBs: exchangeRate > 0 ? Number((val * exchangeRate).toFixed(2)) : 0
-      }));
-    } else {
+    if (inputCurrency === 'BS') {
+      // LOGIC: Amount in Bs entered -> Convert to USD
+      // Formula: Bs / Rate = USD
+      // Example: 2500 Bs / 303 = 8.25 $
+      const convertedUSD = exchangeRate > 0 ? Number((val / exchangeRate).toFixed(2)) : 0;
+      
       setFormData(prev => ({
         ...prev,
         amountBs: val,
-        amountUSD: exchangeRate > 0 ? Number((val / exchangeRate).toFixed(2)) : 0
+        amountUSD: convertedUSD
+      }));
+    } else {
+      // LOGIC: Amount in USD entered -> Convert to Bs
+      // Formula: USD * Rate = Bs
+      const convertedBs = exchangeRate > 0 ? Number((val * exchangeRate).toFixed(2)) : 0;
+
+      setFormData(prev => ({
+        ...prev,
+        amountUSD: val,
+        amountBs: convertedBs
       }));
     }
   };
 
   const handleCurrencyToggle = () => {
-    // Switch currency and re-calculate based on existing primary values? 
-    // Or just clear? Let's clear to avoid confusion, or keep the values consistent.
-    // Let's just switch mode.
     setInputCurrency(prev => prev === 'USD' ? 'BS' : 'USD');
+    // Clear amounts on toggle to avoid confusion
+    setFormData(prev => ({ ...prev, amountUSD: 0, amountBs: 0 }));
   };
 
   const handleMonthToggle = (month: string) => {
@@ -159,7 +168,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
         </div>
         {exchangeRate > 0 && (
           <div className="bg-blue-800/50 px-3 py-1 rounded text-right">
-             <p className="text-blue-200 text-xs">Tasa Actual (Base de Datos)</p>
+             <p className="text-blue-200 text-xs">Tasa Configurada</p>
              <p className="text-white font-mono font-bold">Bs. {exchangeRate}</p>
           </div>
         )}
@@ -365,9 +374,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
                  <Calculator size={14} className="text-slate-400" />
                  <span>Conversión: </span>
                  <span className="font-mono font-medium text-slate-800">
-                    {inputCurrency === 'USD' 
-                      ? `Bs. ${formData.amountBs?.toLocaleString('es-VE', {minimumFractionDigits: 2})}` 
-                      : `$${formData.amountUSD?.toFixed(2)}`
+                    {inputCurrency === 'BS' 
+                      ? `${formData.amountBs} Bs ÷ ${exchangeRate} = $${formData.amountUSD?.toFixed(2)}` 
+                      : `$${formData.amountUSD} x ${exchangeRate} = Bs. ${formData.amountBs?.toLocaleString('es-VE', {minimumFractionDigits: 2})}`
                     }
                  </span>
                </div>

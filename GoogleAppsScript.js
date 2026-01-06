@@ -9,6 +9,11 @@
 
 const SPREADSHEET_ID = '13pCWr4GvNgysOCddPLhkgsj6iVNwfbrE9JyAJIJPhgs';
 
+function doGet(e) {
+  // Maneja las peticiones GET (cuando abres el link en el navegador)
+  return ContentService.createTextOutput("La API de la Oficina Virtual está activa. Por favor utilice peticiones POST desde la aplicación.");
+}
+
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.tryLock(10000);
@@ -35,6 +40,9 @@ function doPost(e) {
       case 'login':
         result = loginUser(postData);
         break;
+      case 'getExchangeRate':
+        result = getExchangeRate();
+        break;
       default:
         result = { success: false, message: "Acción desconocida" };
     }
@@ -59,23 +67,25 @@ function setupSheets() {
   let paySheet = ss.getSheetByName('Payments');
   if (!paySheet) {
     paySheet = ss.insertSheet('Payments');
-    // Headers matching the user's image structure
+    // Headers matching the user's image structure (Columns A - Q)
     paySheet.appendRow([
-      'paymentId', 
-      'timestamp', 
-      'registrationDate', 
-      'paymentDate', 
-      'representativeCi', 
-      'studentId', // Used for Name in sample data
-      'month', 
-      'year', 
-      'paymentMethod', 
-      'reference', 
-      'amount', 
-      'status', 
-      'observations', 
-      'representativeName', 
-      'matricula'
+      'paymentId',            // A
+      'timestamp',            // B
+      'registrationDate',     // C
+      'paymentDate',          // D
+      'representativeCedula', // E
+      'studentId',            // F (Used as Name)
+      'month',                // G
+      'year',                 // H
+      'paymentMethod',        // I
+      'reference',            // J
+      'amount$',              // K
+      'amountBs',             // L
+      'status',               // M
+      'observations',         // N
+      'representativeName',   // O
+      'matricula',            // P
+      'paymentForm'           // Q
     ]);
   }
 
@@ -102,6 +112,14 @@ function setupSheets() {
     userSheet = ss.insertSheet('Users');
     // Updated Schema: Cedula instead of Email
     userSheet.appendRow(['Cedula', 'PasswordHash', 'Name', 'Role', 'CreatedDate']);
+  }
+
+  // 5. Config Sheet (Tasa)
+  let configSheet = ss.getSheetByName('Config');
+  if (!configSheet) {
+    configSheet = ss.insertSheet('Config');
+    configSheet.appendRow(['Tasa', 'Fecha']);
+    configSheet.appendRow([303, new Date()]);
   }
 }
 
@@ -166,41 +184,27 @@ function registerPayment(data) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName('Payments');
   
-  // Construct the row to match the exact order of columns A -> O in the user's image
-  // 1. paymentId (A)
-  // 2. timestamp (B)
-  // 3. registrationDate (C)
-  // 4. paymentDate (D)
-  // 5. representativeCi (E)
-  // 6. studentId (F) - Mapped to Student Name
-  // 7. month (G) - Mapped to Paid Months (Comma separated)
-  // 8. year (H) - Mapped to School Year
-  // 9. paymentMethod (I)
-  // 10. reference (J)
-  // 11. amount (K)
-  // 12. status (L)
-  // 13. observations (M)
-  // 14. representativeName (N)
-  // 15. matricula (O)
-
+  // Map data to Columns A - Q
   const monthsStr = Array.isArray(data.paidMonths) ? data.paidMonths.join(', ') : data.paidMonths;
 
   sheet.appendRow([
-    data.id,
-    new Date(),
-    data.registrationDate,
-    data.paymentDate,
-    data.representativeId,
-    data.studentName, 
-    monthsStr,
-    data.schoolYear,
-    data.paymentMethod,
-    data.referenceNumber,
-    data.amount,
-    'Pendiente', // Default status
-    data.description || '',
-    data.representativeName || '',
-    data.studentMatricula
+    data.id,                     // A: paymentId
+    new Date(),                  // B: timestamp
+    data.registrationDate,       // C: registrationDate
+    data.paymentDate,            // D: paymentDate
+    data.representativeCedula,   // E: representativeCedula
+    data.studentName,            // F: studentId (Name)
+    monthsStr,                   // G: month
+    data.schoolYear,             // H: year
+    data.paymentMethod,          // I: paymentMethod
+    data.referenceNumber,        // J: reference
+    data.amountUSD,              // K: amount$
+    data.amountBs,               // L: amountBs
+    'Pendiente',                 // M: status
+    data.description || '',      // N: observations
+    data.representativeName || '', // O: representativeName
+    data.studentMatricula,       // P: matricula
+    data.paymentForm             // Q: paymentForm (e.g. Abono)
   ]);
 
   // Optional: Send email
@@ -232,6 +236,49 @@ function getDebts(matricula) {
   return { success: true, data: debts };
 }
 
+function getExchangeRate() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName('Config');
+  if (!sheet) {
+     return { success: false, rate: 0, date: null };
+  }
+
+  const lastRow = sheet.getLastRow();
+  // Assuming row 1 is header, data starts at row 2
+  if (lastRow < 2) return { success: false, rate: 0, date: null };
+
+  // Get all data: Col A (Tasa), Col B (Fecha)
+  const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+
+  // Find the row with the LATEST date
+  let latestRate = 0;
+  let latestDateObj = new Date(0); // Epoch time (1970)
+
+  for (let i = 0; i < data.length; i++) {
+    const rowRate = Number(data[i][0]);
+    const rowDateRaw = data[i][1];
+    
+    let rowDate = new Date(rowDateRaw);
+    
+    // Check if date is valid
+    if (!isNaN(rowDate.getTime())) {
+      if (rowDate > latestDateObj) {
+        latestDateObj = rowDate;
+        latestRate = rowRate;
+      }
+    }
+  }
+
+  // If no valid date found, fallback to the very last row
+  if (latestRate === 0 && data.length > 0) {
+     const lastIdx = data.length - 1;
+     latestRate = Number(data[lastIdx][0]);
+     latestDateObj = new Date(data[lastIdx][1]);
+  }
+
+  return { success: true, rate: latestRate, date: latestDateObj.toISOString() };
+}
+
 function generateReport(filters) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName('Payments');
@@ -251,11 +298,6 @@ function generateReport(filters) {
   let filterEndDate = null;
 
   if (filters.startDate && filters.endDate) {
-      // Create timestamps for comparison.
-      // Assumes inputs are YYYY-MM-DD. 
-      // Using simple string comparison for YYYY-MM-DD is often safer in GAS than Date objects due to timezone defaults,
-      // but let's stick to Date objects for flexibility.
-      // Note: new Date('YYYY-MM-DD') is usually UTC midnight.
       filterStartDate = new Date(filters.startDate).getTime();
       filterEndDate = new Date(filters.endDate).getTime();
   } else if (filters.month) {
@@ -268,14 +310,16 @@ function generateReport(filters) {
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    // Col D is paymentDate (Index 3).
-    // Ensure we handle both String and Date Object formats from the sheet.
+    // Row Index adjustments based on new structure:
+    // D (3): paymentDate
+    // G (6): month
+    // I (8): paymentMethod
+    // K (10): amountUSD
+    
     let payDateRaw = row[3];
     let payDateObj;
     
     if (typeof payDateRaw === 'string') {
-        // Force replace - with / if needed, but ISO usually works. 
-        // new Date('2024-05-20') work.
         payDateObj = new Date(payDateRaw);
     } else {
         payDateObj = new Date(payDateRaw);
@@ -284,20 +328,13 @@ function generateReport(filters) {
     const payMonth = payDateObj.getMonth() + 1; 
     const payTime = payDateObj.getTime();
     
-    // Col I is paymentMethod (Index 8)
-    const method = row[8];
-    // Col K is amount (Index 10)
-    const amount = Number(row[10]);
-    // Col G is paidMonths (Index 6)
-    const paidMonthsStr = String(row[6]);
+    const method = row[8];      // Col I
+    const amount = Number(row[10]); // Col K
+    const paidMonthsStr = String(row[6]); // Col G
 
     let match = true;
 
     if (filterStartDate && filterEndDate) {
-        // Inclusive range check. 
-        // Note: payDateObj is likely UTC midnight if created from YYYY-MM-DD string.
-        // filterEndDate is also UTC midnight from YYYY-MM-DD string.
-        // So <= should work for the exact end date.
         if (payTime < filterStartDate || payTime > filterEndDate) {
              match = false;
         }
@@ -306,12 +343,10 @@ function generateReport(filters) {
     }
 
     if (filters.paymentMethod && method !== filters.paymentMethod) match = false;
-    // Level filtering is disabled as the column is not explicitly available in the new sheet structure.
 
     if (match) {
       totalAmount += amount;
       count++;
-      // If filtering by method, group by paidMonths (or part thereof) to show some detail, otherwise by method.
       const key = filters.paymentMethod ? paidMonthsStr : method; 
       breakdownMap[key] = (breakdownMap[key] || 0) + amount;
     }
