@@ -14,7 +14,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
     registrationDate: new Date().toISOString().split('T')[0],
     paymentDate: new Date().toISOString().split('T')[0],
     level: EducationLevel.MATERNAL,
-    paymentMethod: PaymentMethod.PAGO_MOVIL, // Default to generic local method
+    paymentMethod: PaymentMethod.PAGO_MOVIL, 
     amountUSD: 0,
     amountBs: 0,
     paymentForm: 'Total',
@@ -28,7 +28,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
     description: ''
   });
 
-  // Default to 'BS' as requested for the conversion logic
+  // CONFIGURACIÓN: Moneda por defecto 'BS' para que la lógica principal sea Bs -> $
   const [inputCurrency, setInputCurrency] = useState<'USD' | 'BS'>('BS'); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successId, setSuccessId] = useState<string | null>(null);
@@ -48,36 +48,37 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
     }));
   };
 
+  // LÓGICA DE CONVERSIÓN
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = Number(e.target.value);
+    const val = Number(e.target.value); // Valor ingresado por el usuario
     
     if (inputCurrency === 'BS') {
-      // LOGIC: Amount in Bs entered -> Convert to USD
-      // Formula: Bs / Rate = USD
-      // Example: 2500 Bs / 303 = 8.25 $
-      const convertedUSD = exchangeRate > 0 ? Number((val / exchangeRate).toFixed(2)) : 0;
+      // CASO: Usuario ingresa Bolívares (Bs)
+      // Lógica: Monto $ = Monto Bs / Tasa
+      // Ejemplo: 2500 / 303 = 8.25
+      const calculatedUSD = exchangeRate > 0 ? Number((val / exchangeRate).toFixed(2)) : 0;
       
       setFormData(prev => ({
         ...prev,
-        amountBs: val,
-        amountUSD: convertedUSD
+        amountBs: val,          // Guardamos el input directo en Bs
+        amountUSD: calculatedUSD // Guardamos el cálculo en USD
       }));
     } else {
-      // LOGIC: Amount in USD entered -> Convert to Bs
-      // Formula: USD * Rate = Bs
-      const convertedBs = exchangeRate > 0 ? Number((val * exchangeRate).toFixed(2)) : 0;
+      // CASO: Usuario ingresa Dólares ($)
+      // Lógica: Monto Bs = Monto $ * Tasa
+      const calculatedBs = exchangeRate > 0 ? Number((val * exchangeRate).toFixed(2)) : 0;
 
       setFormData(prev => ({
         ...prev,
-        amountUSD: val,
-        amountBs: convertedBs
+        amountUSD: val,         // Guardamos el input directo en USD
+        amountBs: calculatedBs  // Guardamos el cálculo en Bs
       }));
     }
   };
 
   const handleCurrencyToggle = () => {
     setInputCurrency(prev => prev === 'USD' ? 'BS' : 'USD');
-    // Clear amounts on toggle to avoid confusion
+    // Limpiamos montos al cambiar para evitar confusión visual
     setFormData(prev => ({ ...prev, amountUSD: 0, amountBs: 0 }));
   };
 
@@ -111,7 +112,6 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
       id: newId,
       amountUSD: Number(formData.amountUSD), 
       amountBs: Number(formData.amountBs),
-      // Ensure user info is attached if not editable
       representativeCedula: user?.cedula || formData.representativeCedula || '',
       representativeName: user?.name || formData.representativeName || ''
     };
@@ -120,7 +120,6 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
 
     if (result.success) {
       setSuccessId(newId);
-      // Reset form but keep some defaults
       setFormData(prev => ({
         ...prev,
         amountUSD: 0,
@@ -168,7 +167,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
         </div>
         {exchangeRate > 0 && (
           <div className="bg-blue-800/50 px-3 py-1 rounded text-right">
-             <p className="text-blue-200 text-xs">Tasa Configurada</p>
+             <p className="text-blue-200 text-xs">Tasa BCV / Monitor</p>
              <p className="text-white font-mono font-bold">Bs. {exchangeRate}</p>
           </div>
         )}
@@ -202,7 +201,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
           </div>
         </div>
 
-        {/* Representative Info (Read Only if Logged In) */}
+        {/* Representative Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
            <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Cédula del Representante</label>
@@ -211,7 +210,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
               name="representativeCedula"
               value={user?.cedula || formData.representativeCedula}
               onChange={handleChange}
-              disabled={!!user} // Disable if user is logged in
+              disabled={!!user} 
               className={`w-full px-4 py-2 border border-slate-300 rounded-lg ${!!user ? 'bg-slate-100 text-slate-600' : ''}`}
             />
           </div>
@@ -341,7 +340,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
 
           <div className="md:col-span-2 bg-white p-4 rounded border border-blue-100">
             <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-slate-700">Monto del Pago *</label>
+              <label className="block text-sm font-medium text-slate-700">
+                Monto del Pago ({inputCurrency === 'BS' ? 'Bolívares' : 'Dólares'}) *
+              </label>
               <button 
                 type="button" 
                 onClick={handleCurrencyToggle}
@@ -372,11 +373,11 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
             {exchangeRate > 0 && (
                <div className="mt-2 text-sm text-slate-500 flex items-center gap-2 bg-slate-50 p-2 rounded">
                  <Calculator size={14} className="text-slate-400" />
-                 <span>Conversión: </span>
+                 <span>Conversión Automática: </span>
                  <span className="font-mono font-medium text-slate-800">
                     {inputCurrency === 'BS' 
-                      ? `${formData.amountBs} Bs ÷ ${exchangeRate} = $${formData.amountUSD?.toFixed(2)}` 
-                      : `$${formData.amountUSD} x ${exchangeRate} = Bs. ${formData.amountBs?.toLocaleString('es-VE', {minimumFractionDigits: 2})}`
+                      ? `${formData.amountBs} Bs ÷ ${exchangeRate} (Tasa) = $${formData.amountUSD?.toFixed(2)}` 
+                      : `$${formData.amountUSD} x ${exchangeRate} (Tasa) = Bs. ${formData.amountBs?.toLocaleString('es-VE', {minimumFractionDigits: 2})}`
                     }
                  </span>
                </div>
