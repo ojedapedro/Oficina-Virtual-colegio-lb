@@ -2,7 +2,7 @@ import { EducationLevel, PaymentMethod } from './types';
 import { Building2, CreditCard, Smartphone, Wallet, Banknote } from 'lucide-react';
 
 // Replace this with the URL you get after deploying the Google Apps Script
-export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyUg9O01qDvh-yWvn3wliv4BtDo-880oS6HamF4KanM3DduD5Ts2qGBQs2LwtnyC5Nf/exec';
+export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwXsr826Ds3IQhqybMyysu8kx6k0-AO2IIdHIGbWl0TkjvgtdQzbYF6t6jJOnVw_M2P/exec';
 
 export const EDUCATION_LEVELS = Object.values(EducationLevel);
 export const PAYMENT_METHODS = Object.values(PaymentMethod);

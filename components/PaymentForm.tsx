@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Loader2, CheckCircle2, Calculator } from 'lucide-react';
+import { Send, Loader2, CheckCircle2, Calculator, RefreshCw } from 'lucide-react';
 import { EDUCATION_LEVELS, PAYMENT_METHODS } from '../constants';
 import { PaymentRecord, EducationLevel, PaymentMethod, User } from '../types';
 import { generateTransactionId, submitPaymentToSheet } from '../services/sheetService';
@@ -28,6 +28,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
     description: ''
   });
 
+  const [inputCurrency, setInputCurrency] = useState<'USD' | 'BS'>('BS'); // Default to Bs as requested
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successId, setSuccessId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -44,6 +45,31 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    
+    if (inputCurrency === 'USD') {
+      setFormData(prev => ({
+        ...prev,
+        amountUSD: val,
+        amountBs: exchangeRate > 0 ? Number((val * exchangeRate).toFixed(2)) : 0
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        amountBs: val,
+        amountUSD: exchangeRate > 0 ? Number((val / exchangeRate).toFixed(2)) : 0
+      }));
+    }
+  };
+
+  const handleCurrencyToggle = () => {
+    // Switch currency and re-calculate based on existing primary values? 
+    // Or just clear? Let's clear to avoid confusion, or keep the values consistent.
+    // Let's just switch mode.
+    setInputCurrency(prev => prev === 'USD' ? 'BS' : 'USD');
   };
 
   const handleMonthToggle = (month: string) => {
@@ -71,14 +97,11 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
 
     const newId = generateTransactionId();
     
-    // Calculate Bs Amount automatically based on current rate if not manually set (though we don't expose manual set here for simplicity)
-    const calculatedBs = Number(formData.amountUSD) * (exchangeRate || 0);
-
     const record: PaymentRecord = {
       ...formData as PaymentRecord,
       id: newId,
       amountUSD: Number(formData.amountUSD), 
-      amountBs: calculatedBs,
+      amountBs: Number(formData.amountBs),
       // Ensure user info is attached if not editable
       representativeCedula: user?.cedula || formData.representativeCedula || '',
       representativeName: user?.name || formData.representativeName || ''
@@ -136,7 +159,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
         </div>
         {exchangeRate > 0 && (
           <div className="bg-blue-800/50 px-3 py-1 rounded text-right">
-             <p className="text-blue-200 text-xs">Tasa del día</p>
+             <p className="text-blue-200 text-xs">Tasa Actual (Base de Datos)</p>
              <p className="text-white font-mono font-bold">Bs. {exchangeRate}</p>
           </div>
         )}
@@ -307,32 +330,51 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Monto ($) *</label>
+          <div className="md:col-span-2 bg-white p-4 rounded border border-blue-100">
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-slate-700">Monto del Pago *</label>
+              <button 
+                type="button" 
+                onClick={handleCurrencyToggle}
+                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium bg-blue-50 px-2 py-1 rounded"
+              >
+                <RefreshCw size={12} />
+                Cambiar a {inputCurrency === 'USD' ? 'Bolívares (Bs)' : 'Dólares ($)'}
+              </button>
+            </div>
+            
             <div className="relative">
               <input 
                 type="number" 
-                name="amountUSD"
+                name="amountInput"
                 required
                 step="0.01"
                 min="0.01"
                 placeholder="0.00"
-                value={formData.amountUSD || ''}
-                onChange={handleChange}
-                className="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                value={inputCurrency === 'USD' ? (formData.amountUSD || '') : (formData.amountBs || '')}
+                onChange={handleAmountChange}
+                className="w-full pl-8 pr-4 py-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-lg font-bold text-slate-700"
               />
-              <span className="absolute left-3 top-2 text-slate-400 font-bold">$</span>
+              <span className="absolute left-3 top-3.5 text-slate-400 font-bold">
+                {inputCurrency === 'USD' ? '$' : 'Bs'}
+              </span>
             </div>
-            {/* Show estimate if rate available */}
-            {exchangeRate > 0 && formData.amountUSD! > 0 && (
-               <p className="text-xs text-emerald-600 mt-1 font-medium flex items-center gap-1">
-                 <Calculator size={12} />
-                 Bs. {(Number(formData.amountUSD) * exchangeRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-               </p>
+
+            {exchangeRate > 0 && (
+               <div className="mt-2 text-sm text-slate-500 flex items-center gap-2 bg-slate-50 p-2 rounded">
+                 <Calculator size={14} className="text-slate-400" />
+                 <span>Conversión: </span>
+                 <span className="font-mono font-medium text-slate-800">
+                    {inputCurrency === 'USD' 
+                      ? `Bs. ${formData.amountBs?.toLocaleString('es-VE', {minimumFractionDigits: 2})}` 
+                      : `$${formData.amountUSD?.toFixed(2)}`
+                    }
+                 </span>
+               </div>
             )}
           </div>
 
-          <div>
+          <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Referencia / Comprobante
               {formData.paymentMethod?.includes('Efectivo') ? ' (Opcional)' : ' *'}
