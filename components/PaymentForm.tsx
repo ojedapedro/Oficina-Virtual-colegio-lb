@@ -277,7 +277,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
               placeholder="Nombre y Apellido del Alumno"
               value={formData.studentName}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              disabled={!!user}
+              className={`w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${!!user ? 'bg-slate-100 text-slate-600' : ''}`}
             />
           </div>
           <div>
@@ -289,7 +290,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
               placeholder="Nro Matrícula (Autocargado)"
               value={formData.studentMatricula}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-800"
+              disabled={!!user}
+              className={`w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold ${!!user ? 'bg-slate-100 text-slate-600' : 'text-slate-800'}`}
             />
           </div>
         </div>
