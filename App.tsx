@@ -112,7 +112,7 @@ function App() {
                 <span>Cerrar Sesión</span>
             </button>
           <p className="text-xs text-slate-600 text-center mt-4 pb-2">
-            &copy; 2024 GestionAdminLB
+            &copy; 2026 GestionAdminLB
           </p>
         </div>
       </aside>
