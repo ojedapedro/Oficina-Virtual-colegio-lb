@@ -132,11 +132,11 @@ function loginUser(data) {
   const inputHash = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, data.password));
 
   for (let i = 1; i < users.length; i++) {
-    const dbCedula = String(users[i][0]);
+    const dbCedula = String(users[i][0]).trim();
     const dbHash = users[i][1];
     const dbName = users[i][2];
     
-    if (dbCedula === String(data.cedula) && dbHash == inputHash) {
+    if (dbCedula === String(data.cedula).trim() && dbHash == inputHash) {
       return { 
         success: true, 
         user: { cedula: dbCedula, name: dbName, role: users[i][3] } 
@@ -156,6 +156,7 @@ function getStudentByCedula(cedula) {
   
   const data = sheet.getDataRange().getValues();
   const students = [];
+  const searchCedula = String(cedula).trim();
   
   // Basado en tu imagen:
   // Col A (0): studentId (Matrícula)
@@ -163,9 +164,10 @@ function getStudentByCedula(cedula) {
   // Col C (2): name (Nombre Alumno)
   
   for (let i = 1; i < data.length; i++) {
-    const repCedula = String(data[i][1]); // Col B
+    // Usamos trim() para evitar errores por espacios en blanco
+    const repCedula = String(data[i][1]).trim();
     
-    if (repCedula === String(cedula)) {
+    if (repCedula === searchCedula) {
       students.push({
         matricula: data[i][0],    // Col A: studentId
         studentName: data[i][2]   // Col C: name
@@ -173,6 +175,7 @@ function getStudentByCedula(cedula) {
     }
   }
   
+  // Si encontramos estudiantes, retornarlos
   if (students.length > 0) {
     return { success: true, students: students };
   }
@@ -351,10 +354,11 @@ function getRepresentativeEmail(cedula) {
   const sheet = ss.getSheetByName('Representatives'); // Buscar en hoja Representantes
   if (!sheet) return null;
   const data = sheet.getDataRange().getValues();
+  const searchCedula = String(cedula).trim();
   
   // Basado en imagen: Col A (0): cedula, Col D (3): email
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === String(cedula)) {
+    if (String(data[i][0]).trim() === searchCedula) {
       return data[i][3]; // Columna D
     }
   }

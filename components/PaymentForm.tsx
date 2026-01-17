@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Loader2, CheckCircle2, RefreshCw, ArrowRightLeft, UserCheck, GraduationCap, User as UserIcon, Calendar, CreditCard, ChevronDown } from 'lucide-react';
+import { Send, Loader2, CheckCircle2, RefreshCw, ArrowRightLeft, UserCheck, GraduationCap, User as UserIcon, Calendar, CreditCard, ChevronDown, RefreshCcw } from 'lucide-react';
 import { PAYMENT_METHODS } from '../constants';
 import { PaymentRecord, PaymentMethod, User, Student } from '../types';
 import { generateTransactionId, submitPaymentToSheet, fetchStudentByCedula } from '../services/sheetService';
@@ -54,6 +54,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
     
     setIsSearchingStudent(true);
     setAvailableStudents([]);
+    // Reset manual entries if any
+    setFormData(prev => ({ ...prev, studentMatricula: '', studentName: '' }));
     
     const result = await fetchStudentByCedula(cedula);
     
@@ -88,13 +90,6 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
       ...prev,
       [name]: value
     }));
-  };
-
-  const handleCedulaBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    if (val && !user) { 
-      handleSearchStudent(val);
-    }
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,6 +139,11 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
     if (!formData.amountBs || formData.amountBs <= 0) {
       setErrorMsg("El monto debe ser mayor a 0.");
       return;
+    }
+    
+    if (!formData.studentName || !formData.studentMatricula) {
+        setErrorMsg("Debe indicar el nombre y matrícula del estudiante.");
+        return;
     }
 
     setIsSubmitting(true);
@@ -226,48 +226,83 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
 
           {/* Student Selector */}
           <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm relative">
-            <label className="text-xs text-slate-400 font-semibold uppercase block mb-1">
-              Estudiante {availableStudents.length > 1 && '(Seleccionar)'}
-            </label>
+            <div className="flex justify-between items-start mb-1">
+                <label className="text-xs text-slate-400 font-semibold uppercase block">
+                Estudiante
+                </label>
+                <button 
+                    onClick={() => user?.cedula && handleSearchStudent(user.cedula)}
+                    className="text-blue-500 hover:text-blue-700"
+                    title="Recargar estudiantes"
+                >
+                    <RefreshCcw size={14} className={isSearchingStudent ? 'animate-spin' : ''} />
+                </button>
+            </div>
             
             {isSearchingStudent ? (
                <div className="flex items-center gap-2 text-slate-500 text-sm h-10">
-                 <Loader2 className="animate-spin" size={14} /> Cargando datos...
+                 <Loader2 className="animate-spin" size={14} /> Buscando datos...
                </div>
-            ) : availableStudents.length > 1 ? (
-              // Multiple Students: Show Dropdown
-              <div className="relative">
-                <select 
-                  value={formData.studentMatricula}
-                  onChange={handleStudentChange}
-                  className="w-full p-0 bg-transparent font-medium text-slate-700 outline-none appearance-none cursor-pointer pr-6 border-none focus:ring-0"
-                  style={{ backgroundImage: 'none' }}
-                >
-                  {availableStudents.map(student => (
-                    <option key={student.matricula} value={student.matricula}>
-                      {student.matricula} - {student.studentName}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown size={16} className="absolute right-0 top-1 text-slate-400 pointer-events-none" />
-                <div className="text-xs text-slate-500 mt-1">
-                  Matrícula Seleccionada: {formData.studentMatricula}
+            ) : availableStudents.length > 0 ? (
+              // Case A: Students Found -> Show Dropdown or Single
+              availableStudents.length > 1 ? (
+                <div className="relative">
+                  <select 
+                    value={formData.studentMatricula}
+                    onChange={handleStudentChange}
+                    className="w-full p-0 bg-transparent font-medium text-slate-700 outline-none appearance-none cursor-pointer pr-6 border-none focus:ring-0"
+                    style={{ backgroundImage: 'none' }}
+                  >
+                    {availableStudents.map(student => (
+                      <option key={student.matricula} value={student.matricula}>
+                        {student.matricula} - {student.studentName}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} className="absolute right-0 top-1 text-slate-400 pointer-events-none" />
+                  <div className="text-xs text-slate-500 mt-1">
+                    Matrícula: {formData.studentMatricula}
+                  </div>
+                   {/* Hidden Inputs */}
+                   <input type="hidden" name="studentName" value={formData.studentName} />
+                   <input type="hidden" name="studentMatricula" value={formData.studentMatricula} />
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="font-medium text-slate-700 flex items-center gap-2">
+                     {formData.studentName || '---'}
+                     {formData.studentMatricula && <CheckCircle2 size={14} className="text-green-500" />}
+                  </div>
+                  <div className="text-xs text-slate-500">Matrícula: {formData.studentMatricula || '---'}</div>
+                   {/* Hidden Inputs */}
+                   <input type="hidden" name="studentName" value={formData.studentName} />
+                   <input type="hidden" name="studentMatricula" value={formData.studentMatricula} />
+                </>
+              )
             ) : (
-              // Single Student: Show Text
-              <>
-                <div className="font-medium text-slate-700 flex items-center gap-2">
-                   {formData.studentName || '---'}
-                   {formData.studentMatricula && <CheckCircle2 size={14} className="text-green-500" />}
-                </div>
-                <div className="text-xs text-slate-500">Matrícula: {formData.studentMatricula || '---'}</div>
-              </>
+               // Case B: No Students Found -> Allow Manual Input
+               <div className="space-y-2">
+                   <input 
+                      type="text" 
+                      name="studentMatricula"
+                      placeholder="Ingrese Matrícula"
+                      value={formData.studentMatricula} 
+                      onChange={handleChange}
+                      className="w-full text-sm border-b border-slate-200 focus:border-blue-500 outline-none pb-1 bg-transparent placeholder:text-slate-300"
+                   />
+                    <input 
+                      type="text" 
+                      name="studentName"
+                      placeholder="Nombre del Estudiante"
+                      value={formData.studentName} 
+                      onChange={handleChange}
+                      className="w-full text-sm font-medium border-b border-slate-200 focus:border-blue-500 outline-none pb-1 bg-transparent placeholder:text-slate-300"
+                   />
+                   <p className="text-[10px] text-orange-500 leading-tight">
+                     * No se encontraron alumnos automáticamente. Ingrese los datos manualmente.
+                   </p>
+               </div>
             )}
-
-             {/* Hidden Inputs */}
-             <input type="hidden" name="studentName" value={formData.studentName} />
-             <input type="hidden" name="studentMatricula" value={formData.studentMatricula} />
           </div>
 
           {/* Meta Info */}

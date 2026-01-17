@@ -2,7 +2,7 @@ import { PaymentMethod } from './types';
 import { Building2, CreditCard, Smartphone, Wallet, Banknote } from 'lucide-react';
 
 // Replace this with the URL you get after deploying the Google Apps Script
-export const GOOGLE_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
+export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWkfN0UTrcgyREEIsHwT6iGCD92BU_cW0UfP6witYHR-x5caYmR5wzNVYTIMg3b1E5/exec';
 
 export const PAYMENT_METHODS = Object.values(PaymentMethod);
 
