@@ -24,17 +24,9 @@ const callScript = async (action: string, payload: any = {}) => {
     if (action === 'getExchangeRate') {
         return { success: true, rate: 303.00, date: new Date().toISOString() };
     }
-    // Simulación de búsqueda de estudiante (Retorna Array de hermanos)
-    if (action === 'getStudentByCedula') {
-        const baseMatricula = payload.cedula.slice(-3);
-        return { 
-          success: true, 
-          students: [
-            { matricula: `2024-${baseMatricula}-A`, studentName: 'Hijo Mayor Demo' },
-            { matricula: `2024-${baseMatricula}-B`, studentName: 'Hija Menor Demo' }
-          ]
-        };
-    }
+    
+    // NOTA: Se ha eliminado la simulación de estudiantes para obligar el uso de datos reales.
+    // Si no configuras la URL, esto no devolverá nada útil para 'getStudentByCedula'.
 
     return null;
   }
