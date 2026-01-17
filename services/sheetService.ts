@@ -1,4 +1,4 @@
-import { PaymentRecord, DebtStatus, ReportFilter, ReportResult, User, Student } from '../types';
+import { PaymentRecord, DebtStatus, User, Student, ReportFilter, ReportResult } from '../types';
 import { GOOGLE_SCRIPT_URL, MOCK_DEBTS } from '../constants';
 
 export const generateTransactionId = (): string => {
@@ -66,27 +66,6 @@ export const fetchDebts = async (matricula: string): Promise<DebtStatus[]> => {
   }
 };
 
-export const fetchReport = async (filter: ReportFilter): Promise<ReportResult> => {
-  try {
-    const result = await callScript('getReport', filter);
-    if (!result) {
-      // Mock report
-      return {
-        totalAmount: 1250.00,
-        count: 15,
-        breakdown: [
-          { category: 'Transferencia', amount: 800 },
-          { category: 'Efectivo $', amount: 450 }
-        ]
-      };
-    }
-    return result.data;
-  } catch (error) {
-    console.error("Error fetching report:", error);
-    return { totalAmount: 0, count: 0, breakdown: [] };
-  }
-};
-
 export const registerUser = async (user: { name: string, cedula: string, password: string }) => {
   return await callScript('register', user);
 };
@@ -113,5 +92,29 @@ export const fetchStudentByCedula = async (cedula: string): Promise<{ success: b
   } catch (e) {
     console.error("Error fetching student:", e);
     return { success: false };
+  }
+};
+
+export const fetchReport = async (filters: ReportFilter): Promise<ReportResult | null> => {
+  try {
+    const result = await callScript('getReport', filters);
+    
+    // Mock data if script is not configured
+    if (!result && GOOGLE_SCRIPT_URL.includes('YOUR_GOOGLE_APPS_SCRIPT')) {
+        return {
+            totalAmount: 1250.00,
+            count: 8,
+            breakdown: [
+                { category: 'Pago Móvil', amount: 500 },
+                { category: 'Zelle', amount: 750 }
+            ]
+        };
+    }
+
+    if (!result || !result.success) return null;
+    return result.data;
+  } catch (e) {
+    console.error("Error fetching report:", e);
+    return null;
   }
 };

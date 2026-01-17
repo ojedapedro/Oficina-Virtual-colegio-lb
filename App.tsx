@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Receipt, FileText, Menu, X, BarChart3, LogOut, User as UserIcon, RefreshCw } from 'lucide-react';
+import { Receipt, FileText, Menu, X, LogOut, User as UserIcon, RefreshCw } from 'lucide-react';
 import { PaymentForm } from './components/PaymentForm';
 import { BankDetails } from './components/BankDetails';
 import { PendingDebts } from './components/PendingDebts';
-import { Reports } from './components/Reports';
 import { AuthForm } from './components/AuthForm';
 import { User } from './types';
 import { getExchangeRate } from './services/sheetService';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'register' | 'balance' | 'reports'>('register');
+  const [activeTab, setActiveTab] = useState<'register' | 'balance'>('register');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [exchangeRate, setExchangeRate] = useState<{ rate: number; date: string }>({ rate: 0, date: '' });
@@ -117,14 +116,6 @@ function App() {
             <FileText size={20} />
             <span className="font-medium">Consultar Saldo</span>
           </button>
-
-          <button 
-             onClick={() => { setActiveTab('reports'); setMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'reports' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-          >
-            <BarChart3 size={20} />
-            <span className="font-medium">Reportes</span>
-          </button>
         </nav>
 
         <div className="absolute bottom-0 w-full p-4 border-t border-slate-800">
@@ -165,13 +156,11 @@ function App() {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">
-                  {activeTab === 'register' ? 'Gestión de Pagos' : 
-                   activeTab === 'balance' ? 'Estado de Cuenta' : 'Reportes Administrativos'}
+                  {activeTab === 'register' ? 'Gestión de Pagos' : 'Estado de Cuenta'}
                 </h2>
                 <p className="text-slate-500 mt-1">
                   {activeTab === 'register' ? 'Complete el formulario para notificar una transferencia o pago.' : 
-                   activeTab === 'balance' ? 'Verifique las mensualidades pendientes por alumno.' :
-                   'Genere reportes detallados de ingresos.'}
+                   'Verifique las mensualidades pendientes por alumno.'}
                 </p>
               </div>
               <div className="text-right hidden md:block">
@@ -185,7 +174,6 @@ function App() {
               <div className="lg:col-span-2 space-y-8">
                 {activeTab === 'register' && <PaymentForm user={user} exchangeRate={exchangeRate.rate} />}
                 {activeTab === 'balance' && <PendingDebts exchangeRate={exchangeRate.rate} />}
-                {activeTab === 'reports' && <Reports exchangeRate={exchangeRate.rate} />}
               </div>
 
               {/* Sidebar Info (Always Visible on Desktop) */}
