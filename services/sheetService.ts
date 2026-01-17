@@ -14,6 +14,7 @@ const callScript = async (action: string, payload: any = {}) => {
     
     // Simulación para Login/Register con Cédula
     if (action === 'login') {
+       // Acepta cualquier password '123456' para la demo
        if (payload.password === '123456') return { success: true, user: { cedula: payload.cedula, name: 'Usuario Demo' }};
        return { success: false, message: 'Credenciales inválidas (Demo: use pass 123456)' };
     }
@@ -24,9 +25,14 @@ const callScript = async (action: string, payload: any = {}) => {
         return { success: true, rate: 303.00, date: new Date().toISOString() };
     }
     // Simulación de búsqueda de estudiante
+    // Retorna siempre un estudiante para la demo, basado en la cédula
     if (action === 'getStudentByCedula') {
-        if (payload.cedula === '123456') return { success: true, matricula: '2024-001', studentName: 'Estudiante Demo' };
-        return { success: false };
+        const genericMatricula = `2024-${payload.cedula.slice(-3)}`;
+        return { 
+          success: true, 
+          matricula: genericMatricula, 
+          studentName: 'Estudiante Hijo Demo' 
+        };
     }
 
     return null;
