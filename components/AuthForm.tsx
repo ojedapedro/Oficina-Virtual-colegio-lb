@@ -178,7 +178,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onLoginSuccess, logoUrl }) =
         {/* Footer */}
         <div className="bg-slate-50 p-4 border-t border-slate-200 text-center">
           <p className="text-xs text-slate-500">
-            &copy; 2026 Oficina Virtual Colegio LB. Acceso seguro.
+            &copy; 2024 Oficina Virtual Colegio LB. Acceso seguro.
           </p>
         </div>
       </div>
