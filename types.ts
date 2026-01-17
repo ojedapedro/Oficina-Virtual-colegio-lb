@@ -44,8 +44,6 @@ export interface PaymentRecord {
   representativeName: string;// Col O
   studentMatricula: string;  // Col P
   paymentForm: string;       // Col Q: paymentForm (e.g. "Total", "Abono")
-  
-  level: EducationLevel; // Not in sheet columns explicitly, used for logic or appended to obs
 }
 
 export interface DebtStatus {

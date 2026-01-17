@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Loader2, CheckCircle2, RefreshCw, ArrowRightLeft, UserCheck } from 'lucide-react';
-import { EDUCATION_LEVELS, PAYMENT_METHODS } from '../constants';
-import { PaymentRecord, EducationLevel, PaymentMethod, User } from '../types';
+import { Send, Loader2, CheckCircle2, RefreshCw, ArrowRightLeft, UserCheck, GraduationCap } from 'lucide-react';
+import { PAYMENT_METHODS } from '../constants';
+import { PaymentRecord, PaymentMethod, User } from '../types';
 import { generateTransactionId, submitPaymentToSheet, fetchStudentByCedula } from '../services/sheetService';
 
 interface PaymentFormProps {
@@ -13,7 +13,6 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
   const [formData, setFormData] = useState<Partial<PaymentRecord>>({
     registrationDate: new Date().toISOString().split('T')[0],
     paymentDate: new Date().toISOString().split('T')[0],
-    level: EducationLevel.MATERNAL,
     paymentMethod: PaymentMethod.PAGO_MOVIL, 
     amountUSD: 0,
     amountBs: 0,
@@ -57,7 +56,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
       setFormData(prev => ({
         ...prev,
         studentMatricula: result.matricula,
-        studentName: result.studentName || prev.studentName // Actualiza nombre si viene, sino mantiene
+        studentName: result.studentName || prev.studentName
       }));
     }
     setIsSearchingStudent(false);
@@ -263,8 +262,13 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
           </div>
         </div>
 
-        {/* Student ID Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
+        {/* Student Data Section (Modified Layout) */}
+        <div className="bg-slate-50 p-5 rounded-lg border border-slate-200 space-y-4">
+          <div className="flex items-center gap-2 mb-1 border-b border-slate-200 pb-2">
+            <GraduationCap className="text-blue-600" size={20} />
+            <h3 className="text-sm font-bold text-slate-700 uppercase">Datos del Alumno</h3>
+          </div>
+          
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Nombre del Estudiante *
@@ -281,48 +285,33 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
               className={`w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${!!user ? 'bg-slate-100 text-slate-600' : ''}`}
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Número de Matrícula *</label>
-            <input 
-              type="text" 
-              name="studentMatricula"
-              required
-              placeholder="Nro Matrícula (Autocargado)"
-              value={formData.studentMatricula}
-              onChange={handleChange}
-              disabled={!!user}
-              className={`w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold ${!!user ? 'bg-slate-100 text-slate-600' : 'text-slate-800'}`}
-            />
-          </div>
-        </div>
 
-        {/* Level & Year */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nivel Educativo *</label>
-            <select 
-              name="level"
-              required
-              value={formData.level}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            >
-              {EDUCATION_LEVELS.map(level => (
-                <option key={level} value={level}>{level}</option>
-              ))}
-            </select>
-          </div>
-           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Año Escolar *</label>
-            <input 
-              type="text" 
-              name="schoolYear"
-              required
-              placeholder="Ej. 2024-2025"
-              value={formData.schoolYear}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Número de Matrícula *</label>
+              <input 
+                type="text" 
+                name="studentMatricula"
+                required
+                placeholder="Nro Matrícula (Autocargado)"
+                value={formData.studentMatricula}
+                onChange={handleChange}
+                disabled={!!user}
+                className={`w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold ${!!user ? 'bg-slate-100 text-slate-600' : 'text-slate-800'}`}
+              />
+            </div>
+             <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Año Escolar *</label>
+              <input 
+                type="text" 
+                name="schoolYear"
+                required
+                placeholder="Ej. 2024-2025"
+                value={formData.schoolYear}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
           </div>
         </div>
 
