@@ -245,13 +245,13 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
                 >
                   {availableStudents.map(student => (
                     <option key={student.matricula} value={student.matricula}>
-                      {student.studentName} ({student.matricula})
+                      {student.matricula} - {student.studentName}
                     </option>
                   ))}
                 </select>
                 <ChevronDown size={16} className="absolute right-0 top-1 text-slate-400 pointer-events-none" />
                 <div className="text-xs text-slate-500 mt-1">
-                  Matrícula: {formData.studentMatricula}
+                  Matrícula Seleccionada: {formData.studentMatricula}
                 </div>
               </div>
             ) : (
