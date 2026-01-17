@@ -3,7 +3,11 @@ import { Search, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { DebtStatus } from '../types';
 import { fetchDebts } from '../services/sheetService';
 
-export const PendingDebts: React.FC = () => {
+interface PendingDebtsProps {
+  exchangeRate?: number;
+}
+
+export const PendingDebts: React.FC<PendingDebtsProps> = ({ exchangeRate = 0 }) => {
   const [matricula, setMatricula] = useState('');
   const [debts, setDebts] = useState<DebtStatus[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,7 +79,8 @@ export const PendingDebts: React.FC = () => {
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase">
                   <th className="py-3 px-4">Mes / Concepto</th>
-                  <th className="py-3 px-4 text-right">Monto</th>
+                  <th className="py-3 px-4 text-right">Monto ($)</th>
+                  {exchangeRate > 0 && <th className="py-3 px-4 text-right">Monto (Bs)</th>}
                   <th className="py-3 px-4 text-center">Vencimiento</th>
                   <th className="py-3 px-4 text-center">Estatus</th>
                 </tr>
@@ -85,6 +90,11 @@ export const PendingDebts: React.FC = () => {
                   <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-3 px-4 font-medium text-slate-700">{debt.month}</td>
                     <td className="py-3 px-4 text-right font-mono">${debt.amount.toFixed(2)}</td>
+                    {exchangeRate > 0 && (
+                      <td className="py-3 px-4 text-right font-mono text-slate-500">
+                         Bs. {(debt.amount * exchangeRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                      </td>
+                    )}
                     <td className="py-3 px-4 text-center text-sm text-slate-500">
                         {debt.dueDate ? new Date(debt.dueDate).toLocaleDateString() : '-'}
                     </td>
@@ -103,6 +113,11 @@ export const PendingDebts: React.FC = () => {
                   <td className="py-3 px-4 text-right text-red-600">
                     ${debts.filter(d => d.status !== 'Pagado').reduce((acc, curr) => acc + curr.amount, 0).toFixed(2)}
                   </td>
+                   {exchangeRate > 0 && (
+                      <td className="py-3 px-4 text-right text-red-600 font-mono text-sm">
+                        Bs. {(debts.filter(d => d.status !== 'Pagado').reduce((acc, curr) => acc + curr.amount, 0) * exchangeRate).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                      </td>
+                    )}
                   <td colSpan={2}></td>
                 </tr>
               </tfoot>

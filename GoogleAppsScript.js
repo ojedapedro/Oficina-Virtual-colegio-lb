@@ -10,7 +10,6 @@
 const SPREADSHEET_ID = '13pCWr4GvNgysOCddPLhkgsj6iVNwfbrE9JyAJIJPhgs';
 
 function doGet(e) {
-  // Maneja las peticiones GET (cuando abres el link en el navegador)
   return ContentService.createTextOutput("La API de la Oficina Virtual está activa. Por favor utilice peticiones POST desde la aplicación.");
 }
 
@@ -43,6 +42,9 @@ function doPost(e) {
       case 'getExchangeRate':
         result = getExchangeRate();
         break;
+      case 'getStudentByCedula': // Nuevo caso
+        result = getStudentByCedula(postData.cedula);
+        break;
       default:
         result = { success: false, message: "Acción desconocida" };
     }
@@ -67,14 +69,13 @@ function setupSheets() {
   let paySheet = ss.getSheetByName('Payments');
   if (!paySheet) {
     paySheet = ss.insertSheet('Payments');
-    // Headers matching the user's image structure (Columns A - Q)
     paySheet.appendRow([
       'paymentId',            // A
       'timestamp',            // B
       'registrationDate',     // C
       'paymentDate',          // D
       'representativeCedula', // E
-      'studentId',            // F (Used as Name)
+      'studentId',            // F
       'month',                // G
       'year',                 // H
       'paymentMethod',        // I
@@ -89,28 +90,26 @@ function setupSheets() {
     ]);
   }
 
-  // 2. Debts Sheet (Control de Mensualidades)
+  // 2. Debts Sheet
   let debtSheet = ss.getSheetByName('Debts');
   if (!debtSheet) {
     debtSheet = ss.insertSheet('Debts');
     debtSheet.appendRow(['Matrícula', 'Mes/Concepto', 'Monto', 'Estatus', 'Fecha Vencimiento']);
-    // Example data
     debtSheet.appendRow(['2024-001', 'Septiembre', 150, 'Pagado', '2024-09-05']);
-    debtSheet.appendRow(['2024-001', 'Octubre', 150, 'Pendiente', '2024-10-05']);
   }
 
-  // 3. Students Sheet (For notifications)
+  // 3. Students Sheet
   let studSheet = ss.getSheetByName('Students');
   if (!studSheet) {
     studSheet = ss.insertSheet('Students');
-    studSheet.appendRow(['Matrícula', 'Nombre Estudiante', 'Nombre Representante', 'Email Representante']);
+    // Actualizado: Se agrega 'Cedula Representante' en la columna E (índice 4)
+    studSheet.appendRow(['Matrícula', 'Nombre Estudiante', 'Nombre Representante', 'Email Representante', 'Cedula Representante']);
   }
 
-  // 4. Users Sheet (Authentication)
+  // 4. Users Sheet
   let userSheet = ss.getSheetByName('Users');
   if (!userSheet) {
     userSheet = ss.insertSheet('Users');
-    // Updated Schema: Cedula instead of Email
     userSheet.appendRow(['Cedula', 'PasswordHash', 'Name', 'Role', 'CreatedDate']);
   }
 
@@ -129,10 +128,8 @@ function registerUser(data) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName('Users');
   
-  // Check if Cedula exists
   const existingUsers = sheet.getDataRange().getValues();
   for (let i = 1; i < existingUsers.length; i++) {
-    // Check column 0 (Cedula)
     if (String(existingUsers[i][0]) === String(data.cedula)) {
       return { success: false, message: 'La cédula ya está registrada.' };
     }
@@ -144,7 +141,7 @@ function registerUser(data) {
     data.cedula,
     passwordHash,
     data.name,
-    'Representative', // Default role
+    'Representative',
     new Date()
   ]);
 
@@ -166,16 +163,39 @@ function loginUser(data) {
     if (dbCedula === String(data.cedula) && dbHash == inputHash) {
       return { 
         success: true, 
-        user: { 
-          cedula: dbCedula, 
-          name: dbName,
-          role: users[i][3]
-        } 
+        user: { cedula: dbCedula, name: dbName, role: users[i][3] } 
       };
     }
   }
   
   return { success: false, message: 'Cédula o contraseña incorrectos.' };
+}
+
+// --- DATA FUNCTIONS ---
+
+function getStudentByCedula(cedula) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Students');
+  if (!sheet) return { success: false };
+  
+  const data = sheet.getDataRange().getValues();
+  
+  // Buscar en la hoja Students
+  // Estructura esperada: Col A=Matricula, Col B=Nombre Est, Col C=Nombre Rep, Col D=Email, Col E=Cedula Rep
+  for (let i = 1; i < data.length; i++) {
+    // Verificamos si la columna E (index 4) coincide con la cédula.
+    // Si no existe columna E, intentamos fallback o retornamos null.
+    const rowCedula = data[i][4] ? String(data[i][4]) : '';
+    
+    if (rowCedula === String(cedula)) {
+      return { 
+        success: true, 
+        matricula: data[i][0], 
+        studentName: data[i][1] 
+      };
+    }
+  }
+  return { success: false, message: "Estudiante no encontrado para esta cédula" };
 }
 
 // --- PAYMENT FUNCTIONS ---
@@ -184,30 +204,28 @@ function registerPayment(data) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName('Payments');
   
-  // Map data to Columns A - Q
   const monthsStr = Array.isArray(data.paidMonths) ? data.paidMonths.join(', ') : data.paidMonths;
 
   sheet.appendRow([
-    data.id,                     // A: paymentId
-    new Date(),                  // B: timestamp
-    data.registrationDate,       // C: registrationDate
-    data.paymentDate,            // D: paymentDate
-    data.representativeCedula,   // E: representativeCedula
-    data.studentName,            // F: studentId (Name)
-    monthsStr,                   // G: month
-    data.schoolYear,             // H: year
-    data.paymentMethod,          // I: paymentMethod
-    data.referenceNumber,        // J: reference
-    data.amountUSD,              // K: amount$
-    data.amountBs,               // L: amountBs
-    'Pendiente',                 // M: status
-    data.description || '',      // N: observations
-    data.representativeName || '', // O: representativeName
-    data.studentMatricula,       // P: matricula
-    data.paymentForm             // Q: paymentForm (e.g. Abono)
+    data.id,                     // A
+    new Date(),                  // B
+    data.registrationDate,       // C
+    data.paymentDate,            // D
+    data.representativeCedula,   // E
+    data.studentName,            // F
+    monthsStr,                   // G
+    data.schoolYear,             // H
+    data.paymentMethod,          // I
+    data.referenceNumber,        // J
+    data.amountUSD,              // K
+    data.amountBs,               // L
+    'Pendiente',                 // M
+    data.description || '',      // N
+    data.representativeName || '', // O
+    data.studentMatricula,       // P
+    data.paymentForm             // Q
   ]);
 
-  // Optional: Send email
   const email = getRepresentativeEmail(data.studentMatricula);
   if (email) {
     sendPaymentNotification(email, data);
@@ -244,15 +262,13 @@ function getExchangeRate() {
   }
 
   const lastRow = sheet.getLastRow();
-  // Assuming row 1 is header, data starts at row 2
   if (lastRow < 2) return { success: false, rate: 0, date: null };
 
-  // Get all data: Col A (Tasa), Col B (Fecha)
   const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
 
   // Find the row with the LATEST date
   let latestRate = 0;
-  let latestDateObj = new Date(0); // Epoch time (1970)
+  let latestDateObj = new Date(0); // Epoch time
 
   for (let i = 0; i < data.length; i++) {
     const rowRate = Number(data[i][0]);
@@ -260,7 +276,6 @@ function getExchangeRate() {
     
     let rowDate = new Date(rowDateRaw);
     
-    // Check if date is valid
     if (!isNaN(rowDate.getTime())) {
       if (rowDate > latestDateObj) {
         latestDateObj = rowDate;
@@ -269,7 +284,6 @@ function getExchangeRate() {
     }
   }
 
-  // If no valid date found, fallback to the very last row
   if (latestRate === 0 && data.length > 0) {
      const lastIdx = data.length - 1;
      latestRate = Number(data[lastIdx][0]);
@@ -310,34 +324,19 @@ function generateReport(filters) {
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    // Row Index adjustments based on new structure:
-    // D (3): paymentDate
-    // G (6): month
-    // I (8): paymentMethod
-    // K (10): amountUSD
-    
     let payDateRaw = row[3];
-    let payDateObj;
-    
-    if (typeof payDateRaw === 'string') {
-        payDateObj = new Date(payDateRaw);
-    } else {
-        payDateObj = new Date(payDateRaw);
-    }
-
+    let payDateObj = new Date(payDateRaw);
     const payMonth = payDateObj.getMonth() + 1; 
     const payTime = payDateObj.getTime();
     
-    const method = row[8];      // Col I
-    const amount = Number(row[10]); // Col K
-    const paidMonthsStr = String(row[6]); // Col G
+    const method = row[8];      
+    const amount = Number(row[10]); 
+    const paidMonthsStr = String(row[6]); 
 
     let match = true;
 
     if (filterStartDate && filterEndDate) {
-        if (payTime < filterStartDate || payTime > filterEndDate) {
-             match = false;
-        }
+        if (payTime < filterStartDate || payTime > filterEndDate) match = false;
     } else if (filterMonth && payMonth !== filterMonth) {
        match = false;
     }
@@ -359,8 +358,6 @@ function generateReport(filters) {
 
   return { success: true, data: { totalAmount, count, breakdown } };
 }
-
-// --- NOTIFICATIONS ---
 
 function getRepresentativeEmail(matricula) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);

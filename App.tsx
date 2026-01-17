@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Receipt, FileText, Menu, X, BarChart3, LogOut, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, Receipt, FileText, Menu, X, BarChart3, LogOut, User as UserIcon, RefreshCw } from 'lucide-react';
 import { PaymentForm } from './components/PaymentForm';
 import { BankDetails } from './components/BankDetails';
 import { PendingDebts } from './components/PendingDebts';
 import { Reports } from './components/Reports';
 import { AuthForm } from './components/AuthForm';
 import { User } from './types';
+import { getExchangeRate } from './services/sheetService';
 
 function App() {
   const [activeTab, setActiveTab] = useState<'register' | 'balance' | 'reports'>('register');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [exchangeRate, setExchangeRate] = useState<{ rate: number; date: string }>({ rate: 0, date: '' });
 
   const LOGO_URL = "https://i.ibb.co/FbHJbvVT/images.png";
 
@@ -20,6 +22,13 @@ function App() {
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
+    
+    // Fetch Exchange Rate
+    const fetchRate = async () => {
+      const data = await getExchangeRate();
+      setExchangeRate(data);
+    };
+    fetchRate();
   }, []);
 
   const handleLoginSuccess = (userData: User) => {
@@ -76,6 +85,21 @@ function App() {
                 </div>
             </div>
         </div>
+
+        {/* Tasa de Cambio Display */}
+        {exchangeRate.rate > 0 && (
+          <div className="mx-4 mb-4 p-3 bg-slate-800 rounded-lg border border-slate-700">
+            <p className="text-xs text-slate-400 flex items-center gap-1 mb-1">
+              <RefreshCw size={10} /> Tasa Oficial
+            </p>
+            <p className="text-xl font-mono font-bold text-emerald-400">
+              Bs. {exchangeRate.rate.toFixed(2)}
+            </p>
+            <p className="text-[10px] text-slate-500 mt-1">
+              Fecha: {new Date(exchangeRate.date).toLocaleDateString()}
+            </p>
+          </div>
+        )}
 
         <nav className="p-4 space-y-2">
           <button 
@@ -159,9 +183,9 @@ function App() {
             {/* Dynamic Content */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-8">
-                {activeTab === 'register' && <PaymentForm user={user} />}
-                {activeTab === 'balance' && <PendingDebts />}
-                {activeTab === 'reports' && <Reports />}
+                {activeTab === 'register' && <PaymentForm user={user} exchangeRate={exchangeRate.rate} />}
+                {activeTab === 'balance' && <PendingDebts exchangeRate={exchangeRate.rate} />}
+                {activeTab === 'reports' && <Reports exchangeRate={exchangeRate.rate} />}
               </div>
 
               {/* Sidebar Info (Always Visible on Desktop) */}
