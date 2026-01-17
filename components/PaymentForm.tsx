@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Loader2, CheckCircle2, RefreshCw, ArrowRightLeft, UserCheck, GraduationCap, User as UserIcon, Calendar, CreditCard } from 'lucide-react';
+import { Send, Loader2, CheckCircle2, RefreshCw, ArrowRightLeft, UserCheck, GraduationCap, User as UserIcon, Calendar, CreditCard, ChevronDown } from 'lucide-react';
 import { PAYMENT_METHODS } from '../constants';
-import { PaymentRecord, PaymentMethod, User } from '../types';
+import { PaymentRecord, PaymentMethod, User, Student } from '../types';
 import { generateTransactionId, submitPaymentToSheet, fetchStudentByCedula } from '../services/sheetService';
 
 interface PaymentFormProps {
@@ -31,7 +31,10 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successId, setSuccessId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  
+  // State for multiple students
   const [isSearchingStudent, setIsSearchingStudent] = useState(false);
+  const [availableStudents, setAvailableStudents] = useState<Student[]>([]);
 
   const MONTHS = [
     'Inscripción', 'Septiembre', 'Octubre', 'Noviembre', 
@@ -50,17 +53,33 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
     if (!cedula || cedula.length < 5) return;
     
     setIsSearchingStudent(true);
+    setAvailableStudents([]);
+    
     const result = await fetchStudentByCedula(cedula);
     
-    if (result.success && result.matricula) {
+    if (result.success && result.students && result.students.length > 0) {
+      setAvailableStudents(result.students);
+      // Automatically select the first student
       setFormData(prev => ({
         ...prev,
-        studentMatricula: result.matricula,
-        studentName: result.studentName || prev.studentName,
-        // Si el servicio devolviera año escolar, se setearía aquí. Por defecto mantenemos el del estado inicial.
+        studentMatricula: result.students![0].matricula,
+        studentName: result.students![0].studentName
       }));
     }
     setIsSearchingStudent(false);
+  };
+
+  const handleStudentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedMatricula = e.target.value;
+    const selectedStudent = availableStudents.find(s => s.matricula === selectedMatricula);
+    
+    if (selectedStudent) {
+      setFormData(prev => ({
+        ...prev,
+        studentMatricula: selectedStudent.matricula,
+        studentName: selectedStudent.studentName
+      }));
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -73,7 +92,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
 
   const handleCedulaBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    if (val && !user) { // Solo buscar al salir del campo si no es usuario logueado (que ya se buscó)
+    if (val && !user) { 
       handleSearchStudent(val);
     }
   };
@@ -205,14 +224,38 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
              <input type="hidden" name="representativeCedula" value={formData.representativeCedula} />
           </div>
 
-          {/* Student */}
+          {/* Student Selector */}
           <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm relative">
-            <label className="text-xs text-slate-400 font-semibold uppercase block mb-1">Estudiante</label>
+            <label className="text-xs text-slate-400 font-semibold uppercase block mb-1">
+              Estudiante {availableStudents.length > 1 && '(Seleccionar)'}
+            </label>
+            
             {isSearchingStudent ? (
                <div className="flex items-center gap-2 text-slate-500 text-sm h-10">
                  <Loader2 className="animate-spin" size={14} /> Cargando datos...
                </div>
+            ) : availableStudents.length > 1 ? (
+              // Multiple Students: Show Dropdown
+              <div className="relative">
+                <select 
+                  value={formData.studentMatricula}
+                  onChange={handleStudentChange}
+                  className="w-full p-0 bg-transparent font-medium text-slate-700 outline-none appearance-none cursor-pointer pr-6 border-none focus:ring-0"
+                  style={{ backgroundImage: 'none' }}
+                >
+                  {availableStudents.map(student => (
+                    <option key={student.matricula} value={student.matricula}>
+                      {student.studentName} ({student.matricula})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className="absolute right-0 top-1 text-slate-400 pointer-events-none" />
+                <div className="text-xs text-slate-500 mt-1">
+                  Matrícula: {formData.studentMatricula}
+                </div>
+              </div>
             ) : (
+              // Single Student: Show Text
               <>
                 <div className="font-medium text-slate-700 flex items-center gap-2">
                    {formData.studentName || '---'}
@@ -221,6 +264,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({ user, exchangeRate = 0
                 <div className="text-xs text-slate-500">Matrícula: {formData.studentMatricula || '---'}</div>
               </>
             )}
+
              {/* Hidden Inputs */}
              <input type="hidden" name="studentName" value={formData.studentName} />
              <input type="hidden" name="studentMatricula" value={formData.studentMatricula} />

@@ -1,4 +1,4 @@
-import { PaymentRecord, DebtStatus, ReportFilter, ReportResult, User } from '../types';
+import { PaymentRecord, DebtStatus, ReportFilter, ReportResult, User, Student } from '../types';
 import { GOOGLE_SCRIPT_URL, MOCK_DEBTS } from '../constants';
 
 export const generateTransactionId = (): string => {
@@ -10,7 +10,7 @@ export const generateTransactionId = (): string => {
 const callScript = async (action: string, payload: any = {}) => {
   if (GOOGLE_SCRIPT_URL.includes('YOUR_GOOGLE_APPS_SCRIPT')) {
     console.warn(`API URL not configured. Simulating ${action}.`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 800));
     
     // Simulación para Login/Register con Cédula
     if (action === 'login') {
@@ -24,14 +24,15 @@ const callScript = async (action: string, payload: any = {}) => {
     if (action === 'getExchangeRate') {
         return { success: true, rate: 303.00, date: new Date().toISOString() };
     }
-    // Simulación de búsqueda de estudiante
-    // Retorna siempre un estudiante para la demo, basado en la cédula
+    // Simulación de búsqueda de estudiante (Retorna Array de hermanos)
     if (action === 'getStudentByCedula') {
-        const genericMatricula = `2024-${payload.cedula.slice(-3)}`;
+        const baseMatricula = payload.cedula.slice(-3);
         return { 
           success: true, 
-          matricula: genericMatricula, 
-          studentName: 'Estudiante Hijo Demo' 
+          students: [
+            { matricula: `2024-${baseMatricula}-A`, studentName: 'Hijo Mayor Demo' },
+            { matricula: `2024-${baseMatricula}-B`, studentName: 'Hija Menor Demo' }
+          ]
         };
     }
 
@@ -113,7 +114,7 @@ export const getExchangeRate = async (): Promise<{ rate: number, date: string }>
   }
 };
 
-export const fetchStudentByCedula = async (cedula: string): Promise<{ success: boolean, matricula?: string, studentName?: string }> => {
+export const fetchStudentByCedula = async (cedula: string): Promise<{ success: boolean, students?: Student[] }> => {
   try {
     const result = await callScript('getStudentByCedula', { cedula });
     return result || { success: false };
